@@ -29,7 +29,7 @@ function Signup() {
 
         try {
             await signup(name, email, password);
-            navigate('/expense-tracker');
+            navigate('/dashboard');
         } catch (error) {
             setError(error.message);
         } finally {
@@ -42,12 +42,8 @@ function Signup() {
             <div className="auth-card">
                 <div className="auth-header">
                     <div className="auth-logo">₹</div>
-
                     <h1>Create your account</h1>
-
-                    <p>
-                        Start managing your expenses smarter
-                    </p>
+                    <p>Start tracking and forecasting your spending</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="auth-form">
@@ -58,25 +54,20 @@ function Signup() {
                     )}
 
                     <div className="form-group">
-                        <label htmlFor="name">
-                            Name
-                        </label>
-
+                        <label htmlFor="name">Name</label>
                         <input
                             id="name"
                             type="text"
-                            placeholder="Enter your name"
+                            placeholder="Enter your full name"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             required
+                            autoFocus
                         />
                     </div>
 
                     <div className="form-group">
-                        <label htmlFor="email">
-                            Email
-                        </label>
-
+                        <label htmlFor="email">Email</label>
                         <input
                             id="email"
                             type="email"
@@ -88,10 +79,7 @@ function Signup() {
                     </div>
 
                     <div className="form-group">
-                        <label htmlFor="password">
-                            Password
-                        </label>
-
+                        <label htmlFor="password">Password</label>
                         <input
                             id="password"
                             type="password"
@@ -104,18 +92,13 @@ function Signup() {
                     </div>
 
                     <div className="form-group">
-                        <label htmlFor="confirmPassword">
-                            Confirm password
-                        </label>
-
+                        <label htmlFor="confirmPassword">Confirm Password</label>
                         <input
                             id="confirmPassword"
                             type="password"
                             placeholder="Confirm your password"
                             value={confirmPassword}
-                            onChange={(e) =>
-                                setConfirmPassword(e.target.value)
-                            }
+                            onChange={(e) => setConfirmPassword(e.target.value)}
                             minLength="6"
                             required
                         />
@@ -132,10 +115,7 @@ function Signup() {
 
                 <div className="auth-footer">
                     <span>Already have an account?</span>
-
-                    <Link to="/login">
-                        Sign in
-                    </Link>
+                    <Link to="/login">Sign in</Link>
                 </div>
             </div>
         </div>

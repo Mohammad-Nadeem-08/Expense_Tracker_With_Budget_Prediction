@@ -20,7 +20,7 @@ function Login() {
 
         try {
             await login(email, password);
-            navigate('/expense-tracker');
+            navigate('/dashboard');
         } catch (error) {
             setError(error.message);
         } finally {
@@ -33,12 +33,8 @@ function Login() {
             <div className="auth-card">
                 <div className="auth-header">
                     <div className="auth-logo">₹</div>
-
                     <h1>Welcome back</h1>
-
-                    <p>
-                        Sign in to manage your expenses
-                    </p>
+                    <p>Sign in to your SmartSpend account</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="auth-form">
@@ -49,10 +45,7 @@ function Login() {
                     )}
 
                     <div className="form-group">
-                        <label htmlFor="email">
-                            Email
-                        </label>
-
+                        <label htmlFor="email">Email</label>
                         <input
                             id="email"
                             type="email"
@@ -60,14 +53,12 @@ function Login() {
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             required
+                            autoFocus
                         />
                     </div>
 
                     <div className="form-group">
-                        <label htmlFor="password">
-                            Password
-                        </label>
-
+                        <label htmlFor="password">Password</label>
                         <input
                             id="password"
                             type="password"
@@ -89,10 +80,7 @@ function Login() {
 
                 <div className="auth-footer">
                     <span>Don't have an account?</span>
-
-                    <Link to="/signup">
-                        Create account
-                    </Link>
+                    <Link to="/signup">Create account</Link>
                 </div>
             </div>
         </div>
