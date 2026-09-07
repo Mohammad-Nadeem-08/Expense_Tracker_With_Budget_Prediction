@@ -2427,4 +2427,4 @@ textarea {
 .trend-row strong {
     color: #17151f;
     font-size: 12px;
-}
+}.badge { padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; } .badge-high { background-color: #ffebee; color: #c62828; } .badge-medium { background-color: #fff3e0; color: #ef6c00; } .badge-low { background-color: #e8f5e9; color: #2e7d32; }

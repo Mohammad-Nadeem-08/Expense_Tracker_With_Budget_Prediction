@@ -21,3 +21,8 @@ coverage/
 *.log
 .DS_Store
 .vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+

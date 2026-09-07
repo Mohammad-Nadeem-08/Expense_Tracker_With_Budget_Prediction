@@ -97,20 +97,6 @@ const DashboardLayout = () => {
                             </span>
                         </NavLink>
 
-                    </nav>
-
-                </div>
-
-
-                {/* INSIGHTS */}
-
-                <div className="sidebar-section insights-section">
-
-                    <span className="sidebar-section-title">
-                        INSIGHTS
-                    </span>
-
-                    <nav className="sidebar-nav">
 
                         <NavLink
                             to="/prediction"
@@ -120,7 +106,6 @@ const DashboardLayout = () => {
                                 }`
                             }
                         >
-
                             <span className="sidebar-icon">
                                 ✦
                             </span>
@@ -128,11 +113,6 @@ const DashboardLayout = () => {
                             <span className="sidebar-link-text">
                                 Prediction
                             </span>
-
-                            <span className="soon-badge">
-                                Soon
-                            </span>
-
                         </NavLink>
 
                     </nav>

@@ -1,1205 +1,136 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useAuth } from "../context/AuthContext";
 
 const API_URL = "http://localhost:5000/api";
+const REQUIRED_HISTORY_MONTHS = 3;
 
 function Prediction() {
     const { token } = useAuth();
-
+    const navigate = useNavigate();
     const [predictionData, setPredictionData] = useState(null);
-    const [budgets, setBudgets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
-    // ==========================================
-    // FETCH ML PREDICTION + USER BUDGETS
-    // ==========================================
-
     useEffect(() => {
         const fetchPredictionData = async () => {
-            if (!token) {
-                setLoading(false);
-                return;
-            }
-
+            if (!token) return;
             try {
                 setLoading(true);
                 setError("");
-
-                const config = {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                };
-
-                const [
-                    predictionResponse,
-                    budgetResponse,
-                ] = await Promise.all([
-                    axios.get(
-                        `${API_URL}/prediction`,
-                        config
-                    ),
-                    axios.get(
-                        `${API_URL}/budgets`,
-                        config
-                    ),
-                ]);
-
-                setPredictionData(
-                    predictionResponse.data
-                );
-
-                setBudgets(
-                    Array.isArray(
-                        budgetResponse.data
-                    )
-                        ? budgetResponse.data
-                        : []
-                );
-
-            } catch (err) {
-                console.error(
-                    "Failed to load prediction data:",
-                    err
-                );
-
-                setError(
-                    "Unable to load prediction data."
-                );
+                const response = await axios.get(`${API_URL}/prediction`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                setPredictionData(response.data);
+            } catch (requestError) {
+                console.error("Failed to load prediction data:", requestError);
+                setError("Unable to load prediction data. Please try again shortly.");
             } finally {
                 setLoading(false);
             }
         };
-
         fetchPredictionData();
     }, [token]);
 
-
-    // ==========================================
-    // FORMAT CURRENCY
-    // ==========================================
-
-    const formatCurrency = (amount) => {
-        return `₹${Number(
-            amount || 0
-        ).toLocaleString("en-IN", {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 2,
-        })}`;
-    };
-
-
-    // ==========================================
-    // MONTHLY SPENDING FROM BACKEND
-    // ==========================================
-
-    const monthlySpending = useMemo(() => {
-        return (
-            predictionData?.monthlySpending || []
-        );
-    }, [predictionData]);
-
-
-    // ==========================================
-    // ML PREDICTION
-    // ==========================================
-
-    const predictedNextMonth =
-        Number(
-            predictionData?.prediction || 0
-        );
-
-
-    // ==========================================
-    // ML INFORMATION
-    // ==========================================
-
-    const modelName =
-        predictionData?.model ||
-        "Linear Regression";
-
-    const trainingMonths =
-        predictionData?.trainingMonths ||
-        0;
-
-    const r2Score =
-        predictionData?.r2Score;
-
-
-    // ==========================================
-    // AVERAGE MONTHLY SPENDING
-    // ==========================================
-
-    const averageMonthlySpending = useMemo(() => {
-        if (monthlySpending.length === 0) {
-            return 0;
-        }
-
-        const total =
-            monthlySpending.reduce(
-                (sum, month) =>
-                    sum +
-                    Number(
-                        month.amount || 0
-                    ),
-                0
-            );
-
-        return (
-            total /
-            monthlySpending.length
-        );
-    }, [monthlySpending]);
-
-
-    // ==========================================
-    // TOTAL SPENDING
-    // ==========================================
-
-    const totalSpent = useMemo(() => {
-        return monthlySpending.reduce(
-            (total, month) =>
-                total +
-                Number(
-                    month.amount || 0
-                ),
-            0
-        );
-    }, [monthlySpending]);
-
-
-    // ==========================================
-    // CATEGORY SPENDING
-    // ==========================================
-
-    const categorySpending =
-        useMemo(() => {
-
-            const categories = {};
-
-            /*
-             * Category information is not currently
-             * returned by the ML endpoint.
-             *
-             * This section is intentionally kept
-             * empty rather than making another
-             * unnecessary API request.
-             */
-
-            return categories;
-
-        }, []);
-
-
-    // ==========================================
-    // OVERALL BUDGET
-    // ==========================================
-
-    const overallBudget = useMemo(() => {
-
-        const overallBudgets =
-            budgets.filter(
-                (budget) =>
-                    budget.category ===
-                    "Overall"
-            );
-
-        if (
-            overallBudgets.length === 0
-        ) {
-            return 0;
-        }
-
-        const latestBudget =
-            [...overallBudgets].sort(
-                (a, b) => {
-                    return (
-                        new Date(
-                            b.createdAt || 0
-                        ) -
-                        new Date(
-                            a.createdAt || 0
-                        )
-                    );
-                }
-            )[0];
-
-        return Number(
-            latestBudget.amount || 0
-        );
-
-    }, [budgets]);
-
-
-    // ==========================================
-    // BUDGET DIFFERENCE
-    // ==========================================
-
-    const budgetDifference =
-        overallBudget -
-        predictedNextMonth;
-
-
-    // ==========================================
-    // BUDGET STATUS
-    // ==========================================
-
-    const budgetStatus = useMemo(() => {
-
-        if (overallBudget === 0) {
-            return "no-budget";
-        }
-
-        const percentage =
-            (predictedNextMonth /
-                overallBudget) *
-            100;
-
-        if (percentage > 100) {
-            return "over";
-        }
-
-        if (percentage >= 80) {
-            return "near";
-        }
-
-        return "safe";
-
-    }, [
-        overallBudget,
-        predictedNextMonth,
-    ]);
-
-
-    // ==========================================
-    // SPENDING TREND
-    // ==========================================
-
-    const spendingTrend = useMemo(() => {
-
-        if (monthlySpending.length < 2) {
-            return "stable";
-        }
-
-        const current =
-            Number(
-                monthlySpending[
-                    monthlySpending.length - 1
-                ].amount || 0
-            );
-
-        const previous =
-            Number(
-                monthlySpending[
-                    monthlySpending.length - 2
-                ].amount || 0
-            );
-
-        if (current > previous * 1.1) {
-            return "increasing";
-        }
-
-        if (current < previous * 0.9) {
-            return "decreasing";
-        }
-
-        return "stable";
-
-    }, [monthlySpending]);
-
-
-    // ==========================================
-    // HIGHEST CATEGORY
-    // ==========================================
-
-    const highestCategory = useMemo(() => {
-
-        const entries =
-            Object.entries(
-                categorySpending
-            );
-
-        if (entries.length === 0) {
-            return null;
-        }
-
-        entries.sort(
-            (a, b) => b[1] - a[1]
-        );
-
-        return {
-            name: entries[0][0],
-            amount: entries[0][1],
-        };
-
-    }, [categorySpending]);
-
-
-    // ==========================================
-    // LOADING
-    // ==========================================
+    const formatCurrency = (amount) => `₹${Number(amount).toLocaleString("en-IN", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+    })}`;
+    const historyMonths = predictionData?.historyMonths ?? 0;
+    const status = predictionData?.status;
+    const mlData = predictionData?.data;
+    const hasValidForecast = status === "success"
+        && typeof mlData?.ensemble_prediction === "number"
+        && typeof mlData?.linear_regression?.prediction === "number"
+        && typeof mlData?.random_forest?.prediction === "number";
 
     if (loading) {
-        return (
-            <div className="dashboard-page">
-
-                <div className="page-heading">
-
-                    <div>
-
-                        <p className="eyebrow">
-                            INSIGHTS
-                        </p>
-
-                        <h1>
-                            Spending Prediction
-                        </h1>
-
-                        <p className="page-description">
-                            Analyzing your spending
-                            patterns using machine
-                            learning.
-                        </p>
-
-                    </div>
-
-                </div>
-
-                <div className="panel">
-
-                    <div className="empty-state">
-                        Loading prediction...
-                    </div>
-
-                </div>
-
-            </div>
-        );
+        return <div className="dashboard-page"><div className="panel"><div className="empty-state">Loading prediction...</div></div></div>;
     }
-
-
-    // ==========================================
-    // ERROR
-    // ==========================================
 
     if (error) {
+        return <div className="dashboard-page"><div className="panel"><div className="empty-state"><h3>Something went wrong</h3><p>{error}</p></div></div></div>;
+    }
+
+    if (status === "no_data") {
         return (
             <div className="dashboard-page">
-
-                <div className="page-heading">
-
-                    <div>
-
-                        <p className="eyebrow">
-                            INSIGHTS
-                        </p>
-
-                        <h1>
-                            Spending Prediction
-                        </h1>
-
-                        <p className="page-description">
-                            Analyzing your spending
-                            patterns using machine
-                            learning.
-                        </p>
-
+                <div className="panel" style={{ maxWidth: 760, margin: "3rem auto", textAlign: "center", padding: "3rem 2rem" }}>
+                    <p className="eyebrow">SMART FORECAST</p>
+                    <div className="empty-icon" style={{ margin: "0 auto 1rem" }}>✦</div>
+                    <h1>Your spending forecast is waiting</h1>
+                    <p className="page-description" style={{ maxWidth: 560, margin: "1rem auto" }}>Your financial crystal ball needs a little history first.</p>
+                    <p style={{ maxWidth: 610, margin: "1rem auto 2rem" }}>Add expenses across different months and SmartSpend will learn your spending patterns and unlock personalized forecasts.</p>
+                    <div className="dashboard-grid" style={{ textAlign: "left", marginBottom: "2rem" }}>
+                        {["Spending Forecast", "Linear Regression + Random Forest", "Category Risk Ranking", "Smart Recommendations"].map((item) => (
+                            <div className="insight-card budget-safe" key={item}><div className="insight-icon">✓</div><div><h3>{item}</h3></div></div>
+                        ))}
                     </div>
-
+                    <p><strong>0 months of spending history</strong></p>
+                    <button className="primary-button" onClick={() => navigate("/expenses")}>Add Your First Expense</button>
                 </div>
-
-                <div className="panel">
-
-                    <div className="empty-state">
-
-                        <h3>
-                            Something went wrong
-                        </h3>
-
-                        <p>
-                            {error}
-                        </p>
-
-                    </div>
-
-                </div>
-
             </div>
         );
     }
 
+    if (!hasValidForecast) {
+        const monthsNeeded = Math.max(0, REQUIRED_HISTORY_MONTHS - historyMonths);
+        const progress = Math.min(100, (historyMonths / REQUIRED_HISTORY_MONTHS) * 100);
+        return (
+            <div className="dashboard-page">
+                <div className="panel" style={{ maxWidth: 700, margin: "3rem auto", textAlign: "center", padding: "3rem 2rem" }}>
+                    <p className="eyebrow">SMART FORECAST</p>
+                    <div className="empty-icon" style={{ margin: "0 auto 1rem" }}>⌁</div>
+                    <h1>You&apos;re almost ready!</h1>
+                    <p className="page-description" style={{ margin: "1rem auto" }}>We have {historyMonths} month{historyMonths === 1 ? "" : "s"} of spending history. Add more history to unlock your personalized forecast.</p>
+                    <div style={{ maxWidth: 460, margin: "2rem auto", textAlign: "left" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: ".5rem" }}><strong>{historyMonths} / {REQUIRED_HISTORY_MONTHS} months of history</strong><span>{monthsNeeded} more needed</span></div>
+                        <div className="progress-track"><div className="progress-fill" style={{ width: `${progress}%` }} /></div>
+                    </div>
+                    <p style={{ marginBottom: "1.5rem" }}>{predictionData?.message}</p>
+                    <button className="primary-button" onClick={() => navigate("/expenses")}>Add More Expenses</button>
+                </div>
+            </div>
+        );
+    }
 
-    // ==========================================
-    // PAGE
-    // ==========================================
+    const predictedLinear = mlData.linear_regression.prediction;
+    const predictedRF = mlData.random_forest.prediction;
+    const predictedNextMonth = mlData.ensemble_prediction;
+    const forecastBudget = predictionData.forecastBudget;
+    const budgetDifference = forecastBudget ? forecastBudget.amount - predictedNextMonth : null;
+    const budgetStatus = budgetDifference === null ? "no-budget" : budgetDifference < 0 ? "over"
+        : predictedNextMonth / forecastBudget.amount >= 0.8 ? "near" : "safe";
+    const riskRanking = mlData.risk_ranking || [];
+    const monthlySpending = predictionData.monthlySpending || [];
 
     return (
         <div className="dashboard-page">
-
-            {/* ==================================
-                HEADER
-            =================================== */}
-
-            <div className="page-heading">
-
-                <div>
-
-                    <p className="eyebrow">
-                        INSIGHTS
-                    </p>
-
-                    <h1>
-                        Spending Prediction
-                    </h1>
-
-                    <p className="page-description">
-                        Analyze your spending patterns
-                        and predict your next month's
-                        expenses.
-                    </p>
-
-                </div>
-
-            </div>
-
-
-            {/* ==================================
-                ML SUMMARY
-            =================================== */}
-
+            <div className="page-heading"><div><p className="eyebrow">INSIGHTS</p><h1>Smart Forecast</h1><p className="page-description">Forecast for {predictionData.forecastTarget?.label}: ensemble forecasting using Linear Regression & Random Forest.</p></div></div>
             <div className="stats-grid">
-
-                <div className="stat-card">
-
-                    <div className="stat-icon purple">
-                        ₹
-                    </div>
-
-                    <div>
-
-                        <span className="stat-label">
-                            ML Predicted Next Month
-                        </span>
-
-                        <strong className="stat-value">
-                            {predictionData?.prediction !==
-                            null
-                                ? formatCurrency(
-                                      predictedNextMonth
-                                  )
-                                : "—"}
-                        </strong>
-
-                    </div>
-
-                </div>
-
-
-                <div className="stat-card">
-
-                    <div className="stat-icon orange">
-                        ↗
-                    </div>
-
-                    <div>
-
-                        <span className="stat-label">
-                            Average Monthly Spending
-                        </span>
-
-                        <strong className="stat-value">
-                            {formatCurrency(
-                                averageMonthlySpending
-                            )}
-                        </strong>
-
-                    </div>
-
-                </div>
-
-
-                <div className="stat-card">
-
-                    <div className="stat-icon green">
-                        ML
-                    </div>
-
-                    <div>
-
-                        <span className="stat-label">
-                            Prediction Model
-                        </span>
-
-                        <strong className="stat-value">
-                            {modelName}
-                        </strong>
-
-                    </div>
-
-                </div>
-
+                <div className="stat-card"><div className="stat-icon purple">₹</div><div><span className="stat-label">Ensemble Estimate</span><strong className="stat-value">{formatCurrency(predictedNextMonth)}</strong></div></div>
+                <div className="stat-card"><div className="stat-icon orange">LR</div><div><span className="stat-label">Linear Regression</span><strong className="stat-value">{formatCurrency(predictedLinear)}</strong></div></div>
+                <div className="stat-card"><div className="stat-icon green">RF</div><div><span className="stat-label">Random Forest</span><strong className="stat-value">{formatCurrency(predictedRF)}</strong></div></div>
             </div>
-
-
-            {/* ==================================
-                ML MODEL DETAILS
-            =================================== */}
-
-            <div className="panel">
-
-                <div className="panel-header">
-
-                    <div>
-
-                        <h2>
-                            Machine Learning Prediction
-                        </h2>
-
-                        <p>
-                            Your prediction is generated
-                            using your historical spending
-                            data.
-                        </p>
-
+            <div className="dashboard-grid">
+                <div className="panel"><div className="panel-header"><div><h2>Model Evaluation</h2><p>Walk-forward validation, not training-set accuracy</p></div></div>
+                    {!mlData.linear_regression.evaluation_reliable && <div className="insight-card budget-warning" style={{ margin: "1rem" }}><div><h3>Limited data</h3><p>{mlData.linear_regression.evaluation_note}</p></div></div>}
+                    <div className="dashboard-grid" style={{ padding: "0 1rem 1rem" }}>
+                        <div className="stat-card"><div><span className="stat-label">Training Months</span><strong className="stat-value">{mlData.linear_regression.training_months}</strong></div></div>
+                        <div className="stat-card"><div><span className="stat-label">Linear MAE / RMSE</span><strong className="stat-value">{formatCurrency(mlData.linear_regression.cv_mae)} / {formatCurrency(mlData.linear_regression.cv_rmse)}</strong></div></div>
+                        <div className="stat-card"><div><span className="stat-label">RF MAE / RMSE</span><strong className="stat-value">{formatCurrency(mlData.random_forest.cv_mae)} / {formatCurrency(mlData.random_forest.cv_rmse)}</strong></div></div>
                     </div>
-
                 </div>
-
-
-                {predictionData?.prediction ===
-                null ? (
-
-                    <div className="empty-state">
-
-                        <div className="empty-icon">
-                            ML
-                        </div>
-
-                        <h3>
-                            Not enough data
-                        </h3>
-
-                        <p>
-                            {predictionData?.message ||
-                                "Add expenses across at least 3 different months to generate an ML prediction."}
-                        </p>
-
-                    </div>
-
-                ) : (
-
-                    <div>
-
-                        <div className="dashboard-grid">
-
-                            <div className="stat-card">
-
-                                <div className="stat-icon purple">
-                                    ML
-                                </div>
-
-                                <div>
-
-                                    <span className="stat-label">
-                                        Model
-                                    </span>
-
-                                    <strong className="stat-value">
-                                        {modelName}
-                                    </strong>
-
-                                </div>
-
-                            </div>
-
-
-                            <div className="stat-card">
-
-                                <div className="stat-icon orange">
-                                    #
-                                </div>
-
-                                <div>
-
-                                    <span className="stat-label">
-                                        Training Months
-                                    </span>
-
-                                    <strong className="stat-value">
-                                        {trainingMonths}
-                                    </strong>
-
-                                </div>
-
-                            </div>
-
-
-                            <div className="stat-card">
-
-                                <div className="stat-icon green">
-                                    R²
-                                </div>
-
-                                <div>
-
-                                    <span className="stat-label">
-                                        Model Score
-                                    </span>
-
-                                    <strong className="stat-value">
-
-                                        {typeof r2Score ===
-                                        "number"
-                                            ? r2Score.toFixed(
-                                                  2
-                                              )
-                                            : "—"}
-
-                                    </strong>
-
-                                </div>
-
-                            </div>
-
-                        </div>
-
-
-                        <div className="insight-card">
-
-                            <div className="insight-icon">
-                                ✦
-                            </div>
-
-                            <div>
-
-                                <h3>
-                                    ML prediction generated
-                                </h3>
-
-                                <p>
-                                    Based on{" "}
-                                    <strong>
-                                        {trainingMonths}
-                                    </strong>{" "}
-                                    months of your
-                                    historical spending,
-                                    the{" "}
-                                    <strong>
-                                        {modelName}
-                                    </strong>{" "}
-                                    model predicts that
-                                    you may spend
-                                    approximately{" "}
-                                    <strong>
-                                        {formatCurrency(
-                                            predictedNextMonth
-                                        )}
-                                    </strong>{" "}
-                                    next month.
-                                </p>
-
-                            </div>
-
-                        </div>
-
-                    </div>
-
-                )}
-
+                <div className="panel"><div className="panel-header"><div><h2>Budget Outlook</h2><p>Forecast vs {predictionData.forecastTarget?.label}</p></div></div>
+                    {!forecastBudget ? <div className="empty-state"><div className="empty-icon">₹</div><h3>No budget set for forecast month.</h3><p>Create an Overall budget for {predictionData.forecastTarget?.label} to compare it with this forecast.</p></div> : <div style={{ padding: "1rem" }}>
+                        <div className="dashboard-grid" style={{ marginBottom: "1rem" }}><div className="stat-card"><div><span className="stat-label">Forecast-month Budget</span><strong className="stat-value">{formatCurrency(forecastBudget.amount)}</strong></div></div><div className="stat-card"><div><span className="stat-label">Projected Difference</span><strong className="stat-value">{formatCurrency(Math.abs(budgetDifference))} {budgetDifference < 0 ? "Over Budget" : "Remaining"}</strong></div></div></div>
+                        <div className={`insight-card ${budgetStatus === "over" ? "budget-danger" : budgetStatus === "near" ? "budget-warning" : "budget-safe"}`}><div><h3>{budgetStatus === "over" ? "Over Budget Risk" : budgetStatus === "near" ? "Near Budget Limit" : "Within Budget"}</h3><p>{budgetStatus === "over" ? `Your forecast is ${formatCurrency(Math.abs(budgetDifference))} above this month’s budget.` : `Your forecast is within this month’s budget.`}</p></div></div>
+                    </div>}
+                </div>
             </div>
-
-
-            {/* ==================================
-                BUDGET OUTLOOK
-            =================================== */}
-
-            <div className="panel">
-
-                <div className="panel-header">
-
-                    <div>
-
-                        <h2>
-                            Budget Outlook
-                        </h2>
-
-                        <p>
-                            Compare your ML prediction
-                            with your monthly budget.
-                        </p>
-
-                    </div>
-
-                </div>
-
-
-                {overallBudget === 0 ? (
-
-                    <div className="empty-state">
-
-                        <div className="empty-icon">
-                            ₹
-                        </div>
-
-                        <h3>
-                            No Overall Budget
-                        </h3>
-
-                        <p>
-                            Create an Overall budget
-                            to compare your predicted
-                            spending with your limit.
-                        </p>
-
-                    </div>
-
-                ) : (
-
-                    <>
-
-                        <div className="dashboard-grid">
-
-                            <div className="stat-card">
-
-                                <div className="stat-icon purple">
-                                    ₹
-                                </div>
-
-                                <div>
-
-                                    <span className="stat-label">
-                                        Monthly Budget
-                                    </span>
-
-                                    <strong className="stat-value">
-                                        {formatCurrency(
-                                            overallBudget
-                                        )}
-                                    </strong>
-
-                                </div>
-
-                            </div>
-
-
-                            <div className="stat-card">
-
-                                <div className="stat-icon orange">
-                                    ↗
-                                </div>
-
-                                <div>
-
-                                    <span className="stat-label">
-                                        ML Prediction
-                                    </span>
-
-                                    <strong className="stat-value">
-                                        {formatCurrency(
-                                            predictedNextMonth
-                                        )}
-                                    </strong>
-
-                                </div>
-
-                            </div>
-
-
-                            <div className="stat-card">
-
-                                <div
-                                    className={`stat-icon ${
-                                        budgetStatus ===
-                                        "over"
-                                            ? "red"
-                                            : budgetStatus ===
-                                              "near"
-                                            ? "orange"
-                                            : "green"
-                                    }`}
-                                >
-
-                                    {budgetStatus ===
-                                    "over"
-                                        ? "!"
-                                        : "✓"}
-
-                                </div>
-
-                                <div>
-
-                                    <span className="stat-label">
-                                        Expected Remaining
-                                    </span>
-
-                                    <strong className="stat-value">
-
-                                        {formatCurrency(
-                                            Math.max(
-                                                0,
-                                                budgetDifference
-                                            )
-                                        )}
-
-                                    </strong>
-
-                                </div>
-
-                            </div>
-
-                        </div>
-
-
-                        <div
-                            className={`insight-card ${
-                                budgetStatus ===
-                                "over"
-                                    ? "budget-danger"
-                                    : budgetStatus ===
-                                      "near"
-                                    ? "budget-warning"
-                                    : "budget-safe"
-                            }`}
-                        >
-
-                            <div className="insight-icon">
-
-                                {budgetStatus ===
-                                "over"
-                                    ? "!"
-                                    : budgetStatus ===
-                                      "near"
-                                    ? "!"
-                                    : "✓"}
-
-                            </div>
-
-                            <div>
-
-                                <h3>
-
-                                    {budgetStatus ===
-                                    "over"
-                                        ? "Over Budget Risk"
-                                        : budgetStatus ===
-                                          "near"
-                                        ? "Near Budget Limit"
-                                        : "Within Budget"}
-
-                                </h3>
-
-                                <p>
-
-                                    {budgetStatus ===
-                                    "over"
-                                        ? `Your ML model predicts spending ${formatCurrency(
-                                              Math.abs(
-                                                  budgetDifference
-                                              )
-                                          )} above your monthly budget.`
-                                        : budgetStatus ===
-                                          "near"
-                                        ? `Your predicted spending is close to your budget.`
-                                        : `Your predicted spending is currently within your budget.`}
-
-                                </p>
-
-                            </div>
-
-                        </div>
-
-                    </>
-
-                )}
-
-            </div>
-
-
-            {/* ==================================
-                SPENDING HISTORY
-            =================================== */}
-
-            <div className="panel">
-
-                <div className="panel-header">
-
-                    <div>
-
-                        <h2>
-                            Spending History
-                        </h2>
-
-                        <p>
-                            Monthly spending used by
-                            the prediction system.
-                        </p>
-
-                    </div>
-
-                </div>
-
-
-                {monthlySpending.length ===
-                0 ? (
-
-                    <div className="empty-state">
-
-                        <h3>
-                            No spending history
-                        </h3>
-
-                        <p>
-                            Add expenses to begin
-                            building your prediction
-                            history.
-                        </p>
-
-                    </div>
-
-                ) : (
-
-                    <div className="transaction-list">
-
-                        {monthlySpending
-                            .slice(-6)
-                            .map((month) => (
-
-                                <div
-                                    className="transaction"
-                                    key={month.month}
-                                >
-
-                                    <div className="transaction-left">
-
-                                        <div className="transaction-icon">
-                                            ₹
-                                        </div>
-
-                                        <div>
-
-                                            <strong>
-                                                {new Date(
-                                                    `${month.month}-01T00:00:00`
-                                                ).toLocaleString(
-                                                    "default",
-                                                    {
-                                                        month: "long",
-                                                        year: "numeric",
-                                                    }
-                                                )}
-                                            </strong>
-
-                                            <span>
-                                                Monthly spending
-                                            </span>
-
-                                        </div>
-
-                                    </div>
-
-
-                                    <div className="transaction-right">
-
-                                        <strong>
-                                            {formatCurrency(
-                                                month.amount
-                                            )}
-                                        </strong>
-
-                                    </div>
-
-                                </div>
-
-                            ))}
-
-                    </div>
-
-                )}
-
-            </div>
-
-
-            {/* ==================================
-                SPENDING ANALYSIS
-            =================================== */}
-
-            <div className="panel">
-
-                <div className="panel-header">
-
-                    <div>
-
-                        <h2>
-                            Spending Analysis
-                        </h2>
-
-                        <p>
-                            Overview of your recorded
-                            spending behavior.
-                        </p>
-
-                    </div>
-
-                </div>
-
-
-                <div className="dashboard-grid">
-
-                    <div className="stat-card">
-
-                        <div className="stat-icon purple">
-                            ₹
-                        </div>
-
-                        <div>
-
-                            <span className="stat-label">
-                                Total Spending
-                            </span>
-
-                            <strong className="stat-value">
-                                {formatCurrency(
-                                    totalSpent
-                                )}
-                            </strong>
-
-                        </div>
-
-                    </div>
-
-
-                    <div className="stat-card">
-
-                        <div className="stat-icon orange">
-                            ↗
-                        </div>
-
-                        <div>
-
-                            <span className="stat-label">
-                                Spending Trend
-                            </span>
-
-                            <strong className="stat-value">
-
-                                {spendingTrend ===
-                                "increasing"
-                                    ? "Increasing"
-                                    : spendingTrend ===
-                                      "decreasing"
-                                    ? "Decreasing"
-                                    : "Stable"}
-
-                            </strong>
-
-                        </div>
-
-                    </div>
-
-
-                    <div className="stat-card">
-
-                        <div className="stat-icon green">
-                            #
-                        </div>
-
-                        <div>
-
-                            <span className="stat-label">
-                                Months Available
-                            </span>
-
-                            <strong className="stat-value">
-                                {monthlySpending.length}
-                            </strong>
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-
-            {/* ==================================
-                SMART INSIGHT
-            =================================== */}
-
-            <div className="panel">
-
-                <div className="panel-header">
-
-                    <div>
-
-                        <h2>
-                            Smart Insight
-                        </h2>
-
-                        <p>
-                            Personalized observation
-                            from your spending data.
-                        </p>
-
-                    </div>
-
-                </div>
-
-
-                <div className="insight-card">
-
-                    <div className="insight-icon">
-                        ✦
-                    </div>
-
-                    <div>
-
-                        <h3>
-                            Your spending outlook
-                        </h3>
-
-                        {predictionData?.prediction ===
-                        null ? (
-
-                            <p>
-                                Keep recording expenses
-                                across different months
-                                to unlock ML-powered
-                                predictions.
-                            </p>
-
-                        ) : (
-
-                            <p>
-                                Your{" "}
-                                <strong>
-                                    {modelName}
-                                </strong>{" "}
-                                model predicts approximately{" "}
-                                <strong>
-                                    {formatCurrency(
-                                        predictedNextMonth
-                                    )}
-                                </strong>{" "}
-                                in spending next month,
-                                based on{" "}
-                                <strong>
-                                    {trainingMonths}
-                                </strong>{" "}
-                                months of historical
-                                data.
-                            </p>
-
-                        )}
-
-                    </div>
-
-                </div>
-
-            </div>
-
+            <div className="panel"><div className="panel-header"><div><h2>Category Risk Ranking</h2><p>Spending risk for {predictionData.rankingPeriod?.label}</p></div></div><div className="table-responsive"><table className="risk-table" style={{ width: "100%", textAlign: "left" }}><thead><tr><th>Rank</th><th>Category</th><th>Score</th><th>Risk Level</th><th>Key Drivers</th></tr></thead><tbody>{riskRanking.map((category) => <tr key={category.category}><td>#{category.rank}</td><td><strong>{category.category}</strong></td><td>{category.risk_score}</td><td><span className={`badge badge-${category.risk_level.toLowerCase()}`}>{category.risk_level}</span></td><td>{category.contributing_factors.join(", ")}</td></tr>)}</tbody></table></div></div>
+            <div className="panel"><div className="panel-header"><div><h2>Spending History</h2><p>Calendar-month totals</p></div></div><div className="transaction-list">{monthlySpending.slice(-6).map((month) => <div className="transaction" key={month.month}><div className="transaction-left"><div className="transaction-icon">₹</div><div><strong>{month.month}</strong><span>{month.transaction_count} transactions</span></div></div><div className="transaction-right"><strong>{formatCurrency(month.amount)}</strong></div></div>)}</div></div>
         </div>
     );
 }

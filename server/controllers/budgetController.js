@@ -1,25 +1,24 @@
 const Budget = require("../models/Budget");
 const Expense = require("../models/Expense");
 
+const budgetFields = ["amount", "category", "month", "year"];
+
+const pickBudgetFields = (body) => budgetFields.reduce((fields, key) => {
+    if (Object.prototype.hasOwnProperty.call(body, key)) {
+        fields[key] = body[key];
+    }
+    return fields;
+}, {});
+
 // ===============================
 // CREATE BUDGET
 // ===============================
 
 const createBudget = async (req, res) => {
     try {
-        const {
-            amount,
-            category,
-            month,
-            year,
-        } = req.body;
-
         const budget = await Budget.create({
+            ...pickBudgetFields(req.body),
             user: req.userId,
-            amount,
-            category,
-            month,
-            year,
         });
 
         res.status(201).json(budget);
@@ -228,7 +227,7 @@ const updateBudget = async (req, res) => {
                     user: req.userId,
                 },
 
-                req.body,
+                pickBudgetFields(req.body),
 
                 {
                     returnDocument: "after",

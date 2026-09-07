@@ -1,13 +1,16 @@
+const dotenv = require("dotenv");
+
+// Load configuration before importing route modules. Some controllers read
+// configuration while they are initialised (for example ML_SERVICE_URL).
+dotenv.config();
+
 const express = require("express");
 const cors = require("cors");
-const dotenv = require("dotenv");
 const expenseRoutes = require("./routes/expenseRoutes");
 const connectDB = require("./config/db");
 const budgetRoutes = require("./routes/budgetRoutes");
 const authRoutes = require('./routes/authRoutes');
 const predictionRoutes = require("./routes/predictionRoutes");
-
-dotenv.config();
 
 const app = express();
 app.use(cors());

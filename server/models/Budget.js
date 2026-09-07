@@ -41,4 +41,7 @@ const budgetSchema = new mongoose.Schema(
     }
 );
 
+budgetSchema.index({ user: 1, year: -1, month: -1 });
+budgetSchema.index({ user: 1, category: 1 });
+
 module.exports = mongoose.model("Budget", budgetSchema);

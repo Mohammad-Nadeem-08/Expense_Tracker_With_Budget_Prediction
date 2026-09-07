@@ -1,85 +1,68 @@
 from fastapi import FastAPI
-from pydantic import BaseModel
-from typing import List
-from sklearn.linear_model import LinearRegression
-import numpy as np
+from typing import List, Any
+
+from schemas.prediction import UnifiedPredictionRequest
+from services.linear_model import run_linear_regression
+from services.rf_model import run_random_forest
+from services.risk_ranking import calculate_risk_ranking
 
 app = FastAPI(title="SmartSpend ML Service")
 
 
-class MonthlyExpense(BaseModel):
-    month: str
-    amount: float
-
-
-class PredictionRequest(BaseModel):
-    monthly_spending: List[MonthlyExpense]
-
-
 @app.get("/")
 def root():
-    return {
-        "message": "SmartSpend ML Service is running"
-    }
+    return {"message": "SmartSpend ML Service is running"}
 
 
-@app.post("/predict")
-def predict(request: PredictionRequest):
+@app.post("/predict/unified")
+def predict_unified(request: UnifiedPredictionRequest):
+    """
+    Unified prediction endpoint that runs:
+      1. Linear Regression (time-series, walk-forward CV)
+      2. Random Forest Regressor (lag features, walk-forward CV)
+      3. Ensemble average of the two predictions
+      4. Deterministic category risk ranking
 
-    data = request.monthly_spending
+    Evaluation metrics reported are walk-forward MAE/RMSE, NOT training-set
+    R². Training R² is intentionally excluded because it is misleading on
+    small datasets (a 100-tree RF memorises 4 training points → R²≈1.0
+    despite having no predictive value).
+    """
+    # 1. Linear Regression
+    linear_result = run_linear_regression(request.monthly_features)
 
-    # Need at least 3 months of historical data
-    if len(data) < 3:
-        return {
-            "success": False,
-            "message": "At least 3 months of expense history is required.",
-            "prediction": None,
-            "model": "Linear Regression"
-        }
+    # 2. Random Forest
+    rf_result = run_random_forest(request.monthly_features)
 
-    # Sort chronologically
-    data = sorted(
-        data,
-        key=lambda item: item.month
+    # 3. Ensemble average (only combine models that succeeded)
+    if linear_result["success"] and rf_result["success"]:
+        ensemble_prediction = round(
+            (linear_result["prediction"] + rf_result["prediction"]) / 2.0, 2
+        )
+    elif linear_result["success"]:
+        ensemble_prediction = linear_result["prediction"]
+    elif rf_result["success"]:
+        ensemble_prediction = rf_result["prediction"]
+    else:
+        ensemble_prediction = None
+
+    # 4. Risk ranking
+    # total_spent = sum of current-period category.spent values.
+    # IMPORTANT: do NOT use monthly_features[-1].amount here — that is the
+    # last historical month total, which may differ from the current period
+    # totals captured in request.categories.
+    total_spent = sum(cat.spent for cat in request.categories)
+
+    risk_ranking = calculate_risk_ranking(
+        categories=request.categories,
+        total_transaction_count=request.total_transaction_count,
+        total_spent=total_spent,
     )
-
-    # X = month number
-    # y = spending amount
-    X = np.array(
-        [[index + 1] for index in range(len(data))],
-        dtype=float
-    )
-
-    y = np.array(
-        [item.amount for item in data],
-        dtype=float
-    )
-
-    # Create and train ML model
-    model = LinearRegression()
-
-    model.fit(X, y)
-
-    # Predict the next month
-    next_month_number = np.array(
-        [[len(data) + 1]],
-        dtype=float
-    )
-
-    prediction = model.predict(
-        next_month_number
-    )[0]
-
-    # Spending cannot be negative
-    prediction = max(0, float(prediction))
-
-    # Model accuracy score
-    score = model.score(X, y)
 
     return {
         "success": True,
-        "prediction": round(prediction, 2),
-        "model": "Linear Regression",
-        "training_months": len(data),
-        "r2_score": round(float(score), 4)
+        "linear_regression": linear_result,
+        "random_forest": rf_result,
+        "ensemble_prediction": ensemble_prediction,
+        "risk_ranking": risk_ranking,
     }
