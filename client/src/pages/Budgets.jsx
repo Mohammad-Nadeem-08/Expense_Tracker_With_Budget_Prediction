@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import {
   IconPlus,
   IconEdit,
@@ -56,17 +56,16 @@ function Budgets() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
-  const showMessage = (text) => {
+  const showMessage = useCallback((text) => {
     setMessage(text);
     setTimeout(() => {
       setMessage("");
     }, 3000);
-  };
+  }, []);
 
-  const fetchBudgets = async () => {
+  const fetchBudgets = useCallback(async () => {
     if (!token) return;
     try {
-      setLoading(true);
       const response = await axios.get(BUDGET_API, authConfig(token));
       setBudgets(response.data.data || response.data);
     } catch (error) {
@@ -77,9 +76,9 @@ function Budgets() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showMessage, token]);
 
-  const fetchSummary = async () => {
+  const fetchSummary = useCallback(async () => {
     if (!token) return;
     try {
       const response = await axios.get(
@@ -91,17 +90,16 @@ function Budgets() {
       console.error(error);
       setSummary(null);
     }
-  };
+  }, [selectedMonth, selectedYear, token]);
+
+  useEffect(() => {
+    if (token) queueMicrotask(() => { void fetchBudgets(); });
+  }, [fetchBudgets, token]);
 
   useEffect(() => {
     if (!token) return;
-    fetchBudgets();
-  }, [token]);
-
-  useEffect(() => {
-    if (!token) return;
-    fetchSummary();
-  }, [token, selectedMonth, selectedYear, budgets]);
+    queueMicrotask(() => { void fetchSummary(); });
+  }, [fetchSummary, token, budgets]);
 
   const handleBudgetChange = (e) => {
     const { name, value } = e.target;

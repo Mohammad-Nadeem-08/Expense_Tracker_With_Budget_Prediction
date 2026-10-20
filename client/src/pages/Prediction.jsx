@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import { IconBrain, IconTrendingUp, IconCheck, IconInfo, IconPlus } from "../components/Icons";
 import "../App.css";
 
@@ -91,6 +91,7 @@ function Prediction() {
 
   const { predictions, finalPrediction } = predictionData.data;
   const forecastBudget = predictionData.forecastBudget;
+  const validation = predictionData.data.validation;
   const budgetDifference = forecastBudget ? forecastBudget.amount - finalPrediction : null;
   const budgetStatus = budgetDifference === null ? "no-budget" : budgetDifference < 0 ? "over" : finalPrediction / (forecastBudget.amount || 1) >= 0.8 ? "near" : "safe";
   const maxPrediction = Math.max(...METHODS.map((method) => predictions[method.key]), finalPrediction, 1);
@@ -145,7 +146,7 @@ function Prediction() {
           <div className="insight-card budget-info" style={{ marginBottom: "1rem" }}>
             <div style={{ marginTop: 2 }}><IconInfo size={20} /></div>
             <div><h3>Arithmetic mean</h3>
-              <p>({METHODS.map((method) => formatCurrency(predictions[method.key])).join(" + ")}) ÷ 4 = <strong>{formatCurrency(finalPrediction)}</strong></p>
+              <p>({METHODS.map((method) => formatCurrency(predictions[method.key])).join(" + ")}) ÷ 3 = <strong>{formatCurrency(finalPrediction)}</strong></p>
             </div>
           </div>
           <div className="table-responsive"><table className="risk-table"><thead><tr><th>Forecast method</th><th>Prediction</th><th>Contribution to average</th></tr></thead>
@@ -153,6 +154,21 @@ function Prediction() {
               <tr><td><strong>Final Combined Prediction</strong></td><td><strong style={{ color: "var(--color-primary)" }}>{formatCurrency(finalPrediction)}</strong></td><td><strong>Equal-weight average</strong></td></tr>
             </tbody></table></div>
         </div>
+      </div>
+
+      <div className="panel">
+        <div className="panel-header"><div><h2>Historical Forecast Accuracy</h2><p>Walk-forward validation predicts each held-out month using only earlier months.</p></div></div>
+        {validation?.status === "complete" ? <div style={{ padding: "1.25rem" }}>
+          <p className="page-description" style={{ marginBottom: "1rem" }}>{validation.folds} one-month-ahead holdout forecasts, with at least {validation.requiredTrainingMonths} months of history before the first holdout.</p>
+          <div className="table-responsive"><table className="risk-table"><thead><tr><th>Method</th><th>MAE</th><th>RMSE</th><th>MAPE</th><th>Bias</th></tr></thead>
+            <tbody>{Object.entries(validation.models).map(([key, metrics]) => <tr key={key}>
+              <td><strong>{key === "ensemble" ? "Combined average" : METHODS.find((method) => method.key === key)?.title}</strong></td>
+              <td>{formatCurrency(metrics.mae)}</td><td>{formatCurrency(metrics.rmse)}</td>
+              <td>{metrics.mape === null ? "—" : `${metrics.mape}%`}</td><td>{formatCurrency(metrics.bias)}</td>
+            </tr>)}</tbody>
+          </table></div>
+          <p className="page-description" style={{ marginTop: "1rem" }}>MAE and RMSE measure error in rupees. MAPE is the average percentage error (zero-spending months are excluded). Positive bias means the method tends to overpredict. Historical scores describe this data and are not a guarantee of future accuracy.</p>
+        </div> : <div className="empty-state" style={{ padding: "2rem" }}><p>At least {validation?.requiredTrainingMonths || 12} months plus a holdout month are needed to calculate forecast accuracy.</p></div>}
       </div>
 
       <div className="panel">
@@ -178,7 +194,7 @@ function Prediction() {
       <div className="panel">
         <div className="panel-header"><div><h2>Historical Monthly Spending</h2><p>Monthly totals used by the three forecasting methods. Missing months between recorded expenses count as ₹0.</p></div></div>
         <div className="transaction-list">
-          {monthlySpending.slice(-12).map((month) => <div className="transaction" key={month.month}>
+          {monthlySpending.slice(-24).map((month) => <div className="transaction" key={month.month}>
             <div className="transaction-left"><div className="transaction-icon">₹</div><div><strong>{month.label || month.month}</strong></div></div>
             <div className="transaction-right"><strong>{formatCurrency(month.amount)}</strong></div>
           </div>)}

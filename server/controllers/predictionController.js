@@ -1,5 +1,12 @@
 const Expense = require("../models/Expense");
 const Budget = require("../models/Budget");
+const {
+    forecastNextMonth,
+    walkForwardBacktest,
+    movingAverage,
+    weightedMovingAverage,
+    simpleExponentialSmoothing,
+} = require("../services/forecasting");
 
 const monthKeyForDate = (date) => {
     const value = new Date(date);
@@ -27,32 +34,6 @@ const monthParts = (month) => {
     return { year, month: monthNumber };
 };
 
-const roundMoney = (value) => Number(Math.max(0, value).toFixed(2));
-
-// Average of up to the last three observed calendar months.
-const movingAverage = (values) => {
-    const recent = values.slice(-3);
-    return recent.reduce((sum, value) => sum + value, 0) / recent.length;
-};
-
-// Most recent month receives the largest weight. Normalize weights when
-// fewer than three months of history are available.
-const weightedMovingAverage = (values) => {
-    const recent = values.slice(-3);
-    const baseWeights = [0.2, 0.3, 0.5].slice(-recent.length);
-    const weightTotal = baseWeights.reduce((sum, weight) => sum + weight, 0);
-    return recent.reduce((sum, value, index) => sum + value * baseWeights[index], 0) / weightTotal;
-};
-
-// Simple exponential smoothing; alpha=0.5, initialized with the first value.
-const simpleExponentialSmoothing = (values, alpha = 0.5) => {
-    let level = values[0];
-    for (let index = 1; index < values.length; index += 1) {
-        level = alpha * values[index] + (1 - alpha) * level;
-    }
-    return level;
-};
-
 const getPrediction = async (req, res) => {
     try {
         const [expenses, budgets] = await Promise.all([
@@ -69,6 +50,7 @@ const getPrediction = async (req, res) => {
                 monthlySpending: [],
                 forecastTarget: null,
                 forecastBudget: null,
+                validation: null,
                 message: "Add expenses to generate a prediction.",
             });
         }
@@ -91,6 +73,7 @@ const getPrediction = async (req, res) => {
                 monthlySpending: [],
                 forecastTarget: null,
                 forecastBudget: null,
+                validation: null,
                 message: "Add valid dated expenses to generate a prediction.",
             });
         }
@@ -117,16 +100,8 @@ const getPrediction = async (req, res) => {
             label: monthLabel(forecastMonth),
         } : null;
 
-        const predictions = {
-            movingAverage: roundMoney(movingAverage(values)),
-            weightedMovingAverage: roundMoney(weightedMovingAverage(values)),
-            exponentialSmoothing: roundMoney(simpleExponentialSmoothing(values, 0.5)),
-        };
-        const finalPrediction = roundMoney(
-            (predictions.movingAverage
-                + predictions.weightedMovingAverage
-                + predictions.exponentialSmoothing) / 3,
-        );
+        const { predictions, finalPrediction } = forecastNextMonth(values);
+        const validation = walkForwardBacktest(values);
 
         return res.status(200).json({
             success: true,
@@ -138,6 +113,7 @@ const getPrediction = async (req, res) => {
                 ensemble_prediction: finalPrediction,
                 exponentialSmoothingAlpha: 0.5,
                 combinationMethod: "Arithmetic mean of the three predictions",
+                validation,
             },
             historyMonths: monthlySpending.length,
             monthlySpending,
@@ -160,5 +136,7 @@ module.exports = {
         movingAverage,
         weightedMovingAverage,
         simpleExponentialSmoothing,
+        forecastNextMonth,
+        walkForwardBacktest,
     },
 };

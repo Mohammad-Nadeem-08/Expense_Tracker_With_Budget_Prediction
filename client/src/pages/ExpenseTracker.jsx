@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { useAuth } from '../context/AuthContext';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAuth } from "../context/useAuth";
 import axios from "axios";
 import "../App.css";
 
@@ -89,11 +89,17 @@ function ExpenseTracker(){
   const [summary, setSummary] = useState(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
 
+  const showMessage = useCallback((text) => {
+    setMessage(text);
+    setTimeout(() => setMessage(""), 3000);
+  }, []);
+
   // =========================
   // FETCH EXPENSES
   // =========================
 
-  const fetchExpenses = async () => {
+  const fetchExpenses = useCallback(async () => {
+    if (!token) return;
     try {
       const response = await axios.get(EXPENSE_API, authConfig(token));
       setExpenses(response.data);
@@ -103,13 +109,14 @@ function ExpenseTracker(){
     } finally {
       setLoadingExpenses(false);
     }
-  };
+  }, [showMessage, token]);
 
   // =========================
   // FETCH BUDGETS
   // =========================
 
-  const fetchBudgets = async () => {
+  const fetchBudgets = useCallback(async () => {
+    if (!token) return;
     try {
       const response = await axios.get(BUDGET_API, authConfig(token));
       setBudgets(response.data);
@@ -119,16 +126,15 @@ function ExpenseTracker(){
     } finally {
       setLoadingBudgets(false);
     }
-  };
+  }, [showMessage, token]);
 
   // =========================
   // FETCH SUMMARY
   // =========================
 
-  const fetchBudgetSummary = async () => {
+  const fetchBudgetSummary = useCallback(async () => {
+    if (!token) return;
     try {
-      setSummaryLoading(true);
-
       const response = await axios.get(
         `${BUDGET_API}/summary/${summaryMonth}/${summaryYear}`,
         authConfig(token)
@@ -141,32 +147,22 @@ function ExpenseTracker(){
     } finally {
       setSummaryLoading(false);
     }
-  };
+  }, [showMessage, summaryMonth, summaryYear, token]);
 
   useEffect(() => {
-    if (!token) return;
-
-    fetchExpenses();
-    fetchBudgets();
-  }, [token]);
+    queueMicrotask(() => {
+      void fetchExpenses();
+      void fetchBudgets();
+    });
+  }, [fetchBudgets, fetchExpenses]);
 
   useEffect(() => {
-    if (!token) return;
-
-    fetchBudgetSummary();
-  }, [token, summaryMonth, summaryYear]);
+    queueMicrotask(() => { void fetchBudgetSummary(); });
+  }, [fetchBudgetSummary]);
 
   // =========================
   // MESSAGE
   // =========================
-
-  const showMessage = (text) => {
-    setMessage(text);
-
-    setTimeout(() => {
-      setMessage("");
-    }, 3000);
-  };
 
   // =========================
   // EXPENSE FORM

@@ -1,26 +1,29 @@
-import { createContext, useContext, useEffect, useState } from 'react';
-
-const AuthContext = createContext();
+import { useState } from 'react';
+import { AuthContext } from './AuthContextValue';
 
 const API_URL = 'http://localhost:5000/api/auth';
 
-export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
-    const [token, setToken] = useState(null);
-    const [loading, setLoading] = useState(true);
-
-    // Restore login when the page is refreshed
-    useEffect(() => {
+const restoreSession = () => {
+    try {
         const savedToken = localStorage.getItem('token');
         const savedUser = localStorage.getItem('user');
-
-        if (savedToken && savedUser) {
-            setToken(savedToken);
-            setUser(JSON.parse(savedUser));
+        if (!savedToken || !savedUser) return { user: null, token: null };
+        return { user: JSON.parse(savedUser), token: savedToken };
+    } catch {
+        try {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+        } catch {
+            // Storage can be unavailable in privacy-restricted browser contexts.
         }
+        return { user: null, token: null };
+    }
+};
 
-        setLoading(false);
-    }, []);
+export const AuthProvider = ({ children }) => {
+    const [session, setSession] = useState(restoreSession);
+    const { user, token } = session;
+    const loading = false;
 
     // Signup
     const signup = async (name, email, password) => {
@@ -45,8 +48,7 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
 
-        setToken(data.token);
-        setUser(data.user);
+        setSession({ token: data.token, user: data.user });
 
         return data;
     };
@@ -73,8 +75,7 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
 
-        setToken(data.token);
-        setUser(data.user);
+        setSession({ token: data.token, user: data.user });
 
         return data;
     };
@@ -84,8 +85,7 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
 
-        setToken(null);
-        setUser(null);
+        setSession({ token: null, user: null });
     };
 
     return (
@@ -103,8 +103,4 @@ export const AuthProvider = ({ children }) => {
             {children}
         </AuthContext.Provider>
     );
-};
-
-export const useAuth = () => {
-    return useContext(AuthContext);
 };

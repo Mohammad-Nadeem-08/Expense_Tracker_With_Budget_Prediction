@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "node --watch server.js",
     "start": "node server.js",
-    "test": "node --test"
+    "test": "node --test --experimental-test-coverage",
+    "test:coverage": "node scripts/testWithCoverage.js",
+    "seed:demo": "node scripts/seedDemoData.js",
+    "demo:forecast": "node scripts/previewDemoForecast.js"
   },
   "keywords": [],
   "author": "",

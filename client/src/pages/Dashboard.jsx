@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import {
   IconPlus,
   IconExpenses,
@@ -50,10 +50,9 @@ function Dashboard() {
       year: "numeric",
     });
 
-  const fetchExpenses = async () => {
+  const fetchExpenses = useCallback(async () => {
     if (!token) return;
     try {
-      setLoadingExpenses(true);
       const response = await axios.get(EXPENSE_API, authConfig(token));
       setExpenses(response.data.data || response.data);
     } catch (error) {
@@ -61,12 +60,11 @@ function Dashboard() {
     } finally {
       setLoadingExpenses(false);
     }
-  };
+  }, [token]);
 
-  const fetchSummary = async () => {
+  const fetchSummary = useCallback(async () => {
     if (!token) return;
     try {
-      setSummaryLoading(true);
       const response = await axios.get(
         `${BUDGET_API}/summary/${selectedMonth}/${selectedYear}`,
         authConfig(token)
@@ -78,9 +76,9 @@ function Dashboard() {
     } finally {
       setSummaryLoading(false);
     }
-  };
+  }, [selectedMonth, selectedYear, token]);
 
-  const fetchPrediction = async () => {
+  const fetchPrediction = useCallback(async () => {
     if (!token) return;
     try {
       const response = await axios.get(PREDICTION_API, authConfig(token));
@@ -88,18 +86,19 @@ function Dashboard() {
     } catch (error) {
       console.error("Failed to load prediction data:", error);
     }
-  };
-
-  useEffect(() => {
-    if (!token) return;
-    fetchExpenses();
-    fetchPrediction();
   }, [token]);
 
   useEffect(() => {
     if (!token) return;
-    fetchSummary();
-  }, [token, selectedMonth, selectedYear]);
+    queueMicrotask(() => {
+      void fetchExpenses();
+      void fetchPrediction();
+    });
+  }, [fetchExpenses, fetchPrediction, token]);
+
+  useEffect(() => {
+    if (token) queueMicrotask(() => { void fetchSummary(); });
+  }, [fetchSummary, token]);
 
   const currentMonthExpenses = useMemo(() => {
     return expenses.filter((expense) => {

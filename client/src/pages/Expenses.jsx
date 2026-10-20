@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import {
   IconPlus,
   IconSearch,
@@ -62,19 +62,18 @@ function Expenses() {
   const [message, setMessage] = useState("");
 
   // MESSAGE TOAST
-  const showMessage = (text) => {
+  const showMessage = useCallback((text) => {
     setMessage(text);
     setTimeout(() => {
       setMessage("");
     }, 3000);
-  };
+  }, []);
 
   // FETCH EXPENSES
-  const fetchExpenses = async () => {
+  const fetchExpenses = useCallback(async () => {
     if (!token) return;
 
     try {
-      setLoadingExpenses(true);
       const response = await axios.get(EXPENSE_API, authConfig(token));
       setExpenses(response.data.data || response.data);
     } catch (error) {
@@ -85,12 +84,11 @@ function Expenses() {
     } finally {
       setLoadingExpenses(false);
     }
-  };
+  }, [token, showMessage]);
 
   useEffect(() => {
-    if (!token) return;
-    fetchExpenses();
-  }, [token]);
+    if (token) queueMicrotask(() => { void fetchExpenses(); });
+  }, [fetchExpenses, token]);
 
   // FORM HANDLERS
   const handleExpenseChange = (e) => {

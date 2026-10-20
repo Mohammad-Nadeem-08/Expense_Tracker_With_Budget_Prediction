@@ -1,0 +1,148 @@
+{
+  "accountEmail": "demo@smartspend.local",
+  "startMonth": "2024-10",
+  "endMonth": "2026-09",
+  "targetMonth": "2026-10",
+  "transactionCount": 144,
+  "monthlyHistory": [
+    {
+      "month": "2024-10",
+      "amount": 16665
+    },
+    {
+      "month": "2024-11",
+      "amount": 18236.04
+    },
+    {
+      "month": "2024-12",
+      "amount": 17571.79
+    },
+    {
+      "month": "2025-01",
+      "amount": 16634.76
+    },
+    {
+      "month": "2025-02",
+      "amount": 16726.25
+    },
+    {
+      "month": "2025-03",
+      "amount": 17704.85
+    },
+    {
+      "month": "2025-04",
+      "amount": 17189.83
+    },
+    {
+      "month": "2025-05",
+      "amount": 17972.95
+    },
+    {
+      "month": "2025-06",
+      "amount": 18339.6
+    },
+    {
+      "month": "2025-07",
+      "amount": 17831.49
+    },
+    {
+      "month": "2025-08",
+      "amount": 18203.2
+    },
+    {
+      "month": "2025-09",
+      "amount": 19396.51
+    },
+    {
+      "month": "2025-10",
+      "amount": 18718.13
+    },
+    {
+      "month": "2025-11",
+      "amount": 20539.9
+    },
+    {
+      "month": "2025-12",
+      "amount": 19763.88
+    },
+    {
+      "month": "2026-01",
+      "amount": 18689.04
+    },
+    {
+      "month": "2026-02",
+      "amount": 19070.8
+    },
+    {
+      "month": "2026-03",
+      "amount": 20079.55
+    },
+    {
+      "month": "2026-04",
+      "amount": 19474.65
+    },
+    {
+      "month": "2026-05",
+      "amount": 20335.24
+    },
+    {
+      "month": "2026-06",
+      "amount": 20397.96
+    },
+    {
+      "month": "2026-07",
+      "amount": 19892.09
+    },
+    {
+      "month": "2026-08",
+      "amount": 20282.02
+    },
+    {
+      "month": "2026-09",
+      "amount": 21591.43
+    }
+  ],
+  "predictions": {
+    "movingAverage": 20588.51,
+    "weightedMovingAverage": 20858.74,
+    "exponentialSmoothing": 20873.71
+  },
+  "finalPrediction": 20773.65,
+  "walkForwardValidation": {
+    "status": "complete",
+    "requiredTrainingMonths": 12,
+    "availableMonths": 24,
+    "folds": 12,
+    "holdout": "Expanding-window one-month-ahead forecasts; each prediction uses earlier months only.",
+    "models": {
+      "movingAverage": {
+        "observations": 12,
+        "mae": 648.24,
+        "rmse": 827.82,
+        "mape": 3.22,
+        "bias": -355.64
+      },
+      "weightedMovingAverage": {
+        "observations": 12,
+        "mae": 594.56,
+        "rmse": 818.27,
+        "mape": 2.94,
+        "bias": -303.87
+      },
+      "exponentialSmoothing": {
+        "observations": 12,
+        "mae": 615.51,
+        "rmse": 832.42,
+        "mape": 3.04,
+        "bias": -358.15
+      },
+      "ensemble": {
+        "observations": 12,
+        "mae": 609.98,
+        "rmse": 821.52,
+        "mape": 3.02,
+        "bias": -339.22
+      }
+    }
+  }
+}
